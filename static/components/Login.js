@@ -5,13 +5,13 @@ export default {
             <div class="border mx-auto mt-5" style="height: 400px; width: 300px;">
                 <div>
                     <h2 class="text-center">Login Form</h2>
-                    <p mx-2 mt-2 class="text-danger">{{message}}</p>
+                    <p class="mx-2 mt-2 text-danger">{{message}}</p>
                     <div class="mx-2 mb-3">
                         <label for="email" class="form-label">Email address</label>
                         <input type="email" class="form-control" id="email" v-model="formData.email" placeholder="name@example.com">
                     </div>
                     <div class="mx-2 mb-3">
-                        <label for="password" class="form-label">Email address</label>
+                        <label for="password" class="form-label">Password</label>
                         <input type="password" class="form-control" id="password" v-model="formData.password">
                     </div>
                     <div class="mb-3 text-center">
@@ -38,27 +38,28 @@ export default {
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify(this.formData) // the content goes to the backend as JSON string
+                body: JSON.stringify(this.formData)
             })
-            .then(response => response.json())  // wait for the body to be available
+            .then(response => response.json())
             .then(data => {
                 console.log(data)
-                if (Object.keys(data).includes("auth-token")) {
+                if (data["auth-token"]) {
                     localStorage.setItem("auth_token", data["auth-token"])
                     localStorage.setItem("id", data.id)
                     localStorage.setItem("username", data.username)
                     if (data.roles.includes("admin")) {
-                        this.$router.push('/admin') // redirect to the admin page
+                        this.$router.push('/admin')
+                    } else {
+                        this.$router.push('/user')
                     }
-                    else {
-                        this.$router.push('/dashboard') // redirect to the user home page
-                    }
-
-                }
-                else {
+                } else {
                     this.message = data.message
                 }
             })
+            .catch(err => {
+                console.error("Login failed:", err);
+                this.message = "Server error. Try again later.";
+            });
         }
     }
 }

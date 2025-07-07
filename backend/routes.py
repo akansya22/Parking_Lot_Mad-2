@@ -70,18 +70,22 @@ def user_login():
 @app.route('/api/register', methods=['POST'])
 def create_user():
     credentials = request.get_json()
-    if not app.security.datastore.find_user(email = credentials['email']):
-        app.security.datastore.create_user(email = credentials['email'],
-                                           username = credentials['username'],
-                                           password = generate_password_hash(credentials['password']),
-                                           roles = ['user'])
+    if not app.security.datastore.find_user(email=credentials['email']):
+        app.security.datastore.create_user(
+            email=credentials['email'],
+            username=credentials['username'],
+            password=generate_password_hash(credentials['password']),
+            roles=['user']
+        )
         db.session.commit()
         return jsonify({
-            "message": "User created successfully!"
+            "message": "User created successfully!",
+            "success": True
         }), 201
-    
+
     return jsonify({
-        "message": "User already exists!"
+        "message": "User already exists!",
+        "success": False
     }), 400
 
 

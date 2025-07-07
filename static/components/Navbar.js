@@ -2,26 +2,28 @@ export default {
     template: `
     <div class="row border">
         <div class="col-10 fs-2 border">
-            Fast Logistics
+            Vehicle Parking
         </div>
         <div class="col-2 border">
-            <div v-if="loggedIn">
-                <router-link class= "btn btn-primary my-2" to="/login">Login</router-link>
-                <router-link class= "btn btn-warning my-2" to="/register">Register</router-link>
+            <div v-if="!loggedIn">
+                <router-link class="btn btn-primary my-2" to="/login">Login</router-link>
+                <router-link class="btn btn-warning my-2" to="/register">Register</router-link>
             </div>
             <div v-else>
-                <router-link class= "btn btn-danger my-2" to="/login">Logout</router-link>
+                <button class="btn btn-danger my-2" @click="logout">Logout</button>
             </div>
         </div>
     </div>`,
-    data: function() {
+    data() {
         return {
-            loggedIn: localStorage.getItem('auth_token'),
+            loggedIn: !!localStorage.getItem('auth_token')
         };
     },
-    watch: {
-        loggedIn(new_val, old_val) {
-            this.$router.go(0); // Refresh the page to reflect changes
+    methods: {
+        logout() {
+            localStorage.removeItem('auth_token');
+            this.loggedIn = false;
+            this.$router.push('/login');
         }
     }
-}
+};

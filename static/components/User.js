@@ -1,158 +1,84 @@
 export default {
     template: `
-    <div>
-        <h2 class="mt-3">Welcome, {{ userData.username }}</h2>
-        <div class="row border">
-            <div class="col-8 border" style="height: 570px; overflow-y: scroll;">
-                <h3 class="text-center">Your Transactions</h3>
-                <div v-for="t in transactions" class="card mt-2">
-                    <div class="card-body">
-                        <h5 class="card-title">{{ t.name }} <span class="badge text-white bg-secondary">{{t.type}}</span></h5>
-                        <p class="card-text">Created at: {{ t.date.slice(0, 10) }}</p>
-                        <p v-if="t.internal_status == 'paid'" class="card-text">Delivery: {{ t.delivery }}</p>
-                        <p v-if="t.internal_status == 'paid'" class="card-text">Delivery_status: {{ t.delivery_status }}</p>
-                        <p class="card-text">About: {{ t.description }}</p>
-                        <p class="card-text">From: {{ t.source }} to {{t.destination}}</p>
-                        <p v-if="t.internal_status == 'pending'" class="card-text">
-                            Amount: {{ t.amount }}
-                            <button @click="() => pay(t.id)" class="btn btn-success">Pay</button>
-                        </p>
-                        <p v-if="t.internal_status == 'requested'" class="card-text">
-                            
-                            <router-link :to="{ name: 'update', params: { id: t.id } }" class="btn btn-primary">Update</router-link>
-                            <button class="btn btn-danger">Delete</button>
-                        </p>
-                    </div>
-                </div>
-            </div>
-            <div class="col-4 border" style="height: 570px;">
-                <h2>Create Transactions</h2>
-                <div class="mb-3">
-                    <label for="name" class="form-label">Transaction Name</label>
-                    <input type="text" class="form-control" id="name" v-model="transData.name">
-                </div>
-                <div class="mb-3">
-                    <label for="type" class="form-label">Transaction Type</label>
-                    <input type="text" class="form-control" id="type" v-model="transData.type">
-                </div>
-                
-                <div class="d-flex">
-                    <div class="mb-3 mx-2">
-                        <label for="source" class="form-label">Source City</label>
-                        <select class="form-select" aria-label="Default select example" v-model="transData.source">
-                            <option selected>Open this select menu</option>
-                            <option value="Mumbai">Mumbai</option>
-                            <option value="Nagpur">Nagpur</option>
-                            <option value="Delhi">Delhi</option>
-                            <option value="Chennai">Chennai</option>
-                            <option value="Pune">Pune</option>
-                            <option value="Kolkata">Kolkata</option>
-                        </select>
-                    </div>
+    <div class="row border">
+        <div class="col-12">
+            <h2 class="mt-3 text-end">Welcome, {{ username }}</h2>
 
-                    <div class="mb-3">
-                        <label for="destination" class="form-label">Destination City</label>
-                        <select class="form-select" aria-label="Default select example" v-model="transData.destination">
-                            <option selected>Open this select menu</option>
-                            <option value="Mumbai">Mumbai</option>
-                            <option value="Nagpur">Nagpur</option>
-                            <option value="Delhi">Delhi</option>
-                            <option value="Chennai">Chennai</option>
-                            <option value="Pune">Pune</option>
-                            <option value="Kolkata">Kolkata</option>
-                        </select>
-                    </div>
+            <div class="row border">
+                <div class="col-6 border" style="height: 300px; overflow-y: scroll;">
+                    <h4 class="mt-3 text-primary fw-bold">Available Parking Lots</h4>
+                    <ul class="list-group">
+                        <li v-for="lot in lots" :key="lot.id" class="list-group-item d-flex justify-content-between align-items-center">
+                            {{ lot.name }} - Spots: {{ lot.total_spots }}
+                            <button class="btn btn-success btn-sm" @click="bookSpot(lot.id)">Book</button>
+                        </li>
+                    </ul>
                 </div>
 
-                <div class="mb-3">
-                    <label for="desc" class="form-label">Discription</label>
-                    <textarea class="form-control" id="desc" rows="3" v-model="transData.desc"></textarea>
-                </div>
-
-                <div class="mb-3 text-end">
-                    <button @click="createTrans" class="btn btn-primary">Create</button>
+                <div class="col-6 border" style="height: 300px; overflow-y: scroll;">
+                    <h4 class="mt-3 text-success fw-bold">Your Booked Spots</h4>
+                    <ul class="list-group">
+                        <li v-for="booking in bookings" :key="booking.id" class="list-group-item d-flex justify-content-between align-items-center">
+                            {{ booking.lot_name }} - Spot: {{ booking.spot_number }}
+                            <button class="btn btn-danger btn-sm" @click="releaseSpot(booking.id)">Release</button>
+                        </li>
+                    </ul>
                 </div>
             </div>
         </div>
-    </div>`,
-    data: function() {
+    </div>
+    `,
+    data() {
         return {
-            userData:"",
-            transactions: null,
-            transData:{
-                name: '',
-                type: '',
-                source: '',
-                destination: '',
-                desc: ''
-            }
-        }
-    },
-    mounted(){
-        this.loadUser();
-        this.loadTrans();
+            username: localStorage.getItem('username') || 'User',
+            lots: [],
+            bookings: []
+        };
     },
     methods: {
-        createTrans() {
-            fetch('/api/create', {
+        fetchLots() {
+            fetch('/api/lots')
+                .then(res => res.json())
+                .then(data => {
+                    this.lots = data;
+                });
+        },
+        fetchBookings() {
+            const userId = localStorage.getItem('id');
+            fetch(`/api/user/bookings?id=${userId}`)
+                .then(res => res.json())
+                .then(data => {
+                    this.bookings = data;
+                });
+        },
+        bookSpot(lotId) {
+            const userId = localStorage.getItem('id');
+            fetch('/api/book', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authentication-Token': localStorage.getItem("auth_token")
-                },
-                body: JSON.stringify(this.transData)
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ user_id: userId, lot_id: lotId })
             })
-            .then(response => response.json())
+            .then(res => res.json())
             .then(data => {
-                this.loadTrans(); // Reload transactions after creating a new one
-            })
-            // Reset the form data here
-            this.transData = {
-                name: '',
-                type: '',
-                source: '',
-                destination: '',
-                desc: ''
-            }
+                alert(data.message);
+                this.fetchLots();
+                this.fetchBookings();
+            });
         },
-        loadUser() {
-            fetch('/api/home', {
-                method: 'GET',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authentication-Token': localStorage.getItem("auth_token")
-                }
+        releaseSpot(bookingId) {
+            fetch(`/api/release?id=${bookingId}`, {
+                method: 'POST'
             })
-            .then(response => response.json())
-            .then(data => this.userData = data)
-        },
-        loadTrans() {
-            fetch('/api/get', {
-                method: 'GET',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authentication-Token': localStorage.getItem("auth_token")
-                }
-            })
-            .then(response => response.json())
-            .then(data =>{
-                console.log(data)
-                this.transactions = data
-            })
-        },
-        pay(id) {
-            fetch(`/api/pay/${id}`, {
-                method: 'GET',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authentication-Token': localStorage.getItem("auth_token")
-                }
-            })
-            .then(response => response.json())
+            .then(res => res.json())
             .then(data => {
-                console.log(data);
-                this.$router.go(0); // Reload the page to reflect changes
-            })
+                alert(data.message);
+                this.fetchLots();
+                this.fetchBookings();
+            });
         }
+    },
+    mounted() {
+        this.fetchLots();
+        this.fetchBookings();
     }
-}
+};
