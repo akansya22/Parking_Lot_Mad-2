@@ -5,6 +5,8 @@ import Navbar from './components/Navbar.js';
 import Footer from './components/Footer.js';
 import User from './components/User.js';
 import Admin from './components/Admin.js';
+import AdminUsers from './components/AdminUsers.js';
+import AdminSummary from './components/AdminSummary.js';
 
 
 
@@ -14,6 +16,9 @@ const routes = [
     {path: '/register', component: Register},
     {path: '/user', component: User},
     {path: '/admin', component: Admin},
+    {path: '/admin-users', component: AdminUsers},
+    {path: '/admin-summary', component: AdminSummary},
+
 ]
 
 const router = new VueRouter({

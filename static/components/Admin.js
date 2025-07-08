@@ -1,126 +1,325 @@
 export default {
-    data() {
-        return {
-            lots: [],
-            newLot: {
-                location_name: '',
-                pin_code: '',
-                price: '',
-                number_of_spots: ''
-            },
-            message: '',
-            username: localStorage.getItem("username")
-        };
-    },
-    methods: {
-        async fetchLots() {
-            try {
-                const res = await fetch("/api/get", {
-                    headers: {
-                        'Authorization': 'Bearer ' + localStorage.getItem("token")
-                    }
-                });
-                const data = await res.json();
-                this.lots = data;
-            } catch (err) {
-                console.error("Failed to fetch lots", err);
-            }
-        },
-        async createLot() {
-            try {
-                const res = await fetch("/api/create", {
-                    method: "POST",
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': 'Bearer ' + localStorage.getItem("token")
-                    },
-                    body: JSON.stringify(this.newLot)
-                });
-                const data = await res.json();
-                this.message = data.message;
-                this.fetchLots();
-                this.newLot = {
-                    location_name: '',
-                    pin_code: '',
-                    price: '',
-                    number_of_spots: ''
-                };
-            } catch (err) {
-                console.error("Failed to create lot", err);
-            }
-        },
-        async deleteLot(id) {
-            if (!confirm("Are you sure you want to delete this parking lot?")) return;
+  data() {
+    return {
+      lots: [],
+      newLot: {
+        location_name: "",
+        pin_code: "",
+        price: "",
+        number_of_spots: ""
+      },
+      editLot: null,
+      message: "",
+      showModal: false,
+      showEditModal: false,
+      selectedSpot: null,
+      selectedSpotDetails: null,
+      isOccupied: false,
+      selectedSpotModal: false,
+      showUsers: false,
+      users: []
+    };
+  },
 
-            try {
-                const res = await fetch(`/api/delete/${id}`, {
-                    method: "DELETE",
-                    headers: {
-                        'Authorization': 'Bearer ' + localStorage.getItem("token")
-                    }
-                });
-                const data = await res.json();
-                this.message = data.message;
-                this.fetchLots();
-            } catch (err) {
-                console.error("Failed to delete lot", err);
-            }
+  methods: {
+    async fetchLots() {
+      try {
+        const res = await fetch("/api/lot", {
+          headers: { "Authentication-Token": localStorage.getItem("auth_token") }
+        });
+        this.lots = await res.json();
+      } catch (err) {
+        console.error("Failed to fetch lots", err);
+      }
+    },
+
+    async createLot() {
+      try {
+        const res = await fetch("/api/lot", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authentication-Token": localStorage.getItem("auth_token")
+          },
+          body: JSON.stringify(this.newLot)
+        });
+        const data = await res.json();
+        this.message = data.message;
+        this.fetchLots();
+        this.showModal = false;
+        this.newLot = {
+          location_name: "",
+          pin_code: "",
+          price: "",
+          number_of_spots: ""
+        };
+      } catch (err) {
+        console.error("Failed to create lot", err);
+      }
+    },
+
+    async deleteLot(id) {
+      if (!confirm("Delete this parking lot?")) return;
+      try {
+        const res = await fetch(`/api/lot/${id}`, {
+          method: "DELETE",
+          headers: { "Authentication-Token": localStorage.getItem("auth_token") }
+        });
+        const data = await res.json();
+        this.message = data.message;
+        this.fetchLots();
+      } catch (err) {
+        console.error("Failed to delete lot", err);
+      }
+    },
+
+    openEditModal(lot) {
+      this.editLot = { ...lot };
+      this.showEditModal = true;
+    },
+
+    async updateLot() {
+      try {
+        const res = await fetch(`/api/lot/${this.editLot.id}`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            "Authentication-Token": localStorage.getItem("auth_token")
+          },
+          body: JSON.stringify(this.editLot)
+        });
+        const data = await res.json();
+        this.message = data.message;
+        this.showEditModal = false;
+        this.fetchLots();
+      } catch (err) {
+        console.error("Failed to update lot", err);
+      }
+    },
+
+    generateSpots(lot) {
+        const spots = [];
+        for (let i = 1; i <= lot.number_of_spots; i++) {
+            spots.push({
+            number: i,
+            status: i <= (lot.occupied_spots || 0) ? 'O' : 'A',
+            lotId: lot.id
+            });
+        }
+        return spots;
+    },
+
+    handleSpotClick(spot) {
+        this.selectedSpot = spot;
+        this.isOccupied = spot.status === 'O';
+        if (this.isOccupied) {
+            this.fetchSpotDetails(spot);
+        } else {
+            this.selectedSpotDetails = null;
+            this.selectedSpotModal = true;
+        }
+        },
+
+        async fetchSpotDetails(spot) {
+        try {
+            const res = await fetch(`/api/spot/${spot.lotId}/${spot.number}`, {
+            headers: { "Authentication-Token": localStorage.getItem("auth_token") }
+            });
+            this.selectedSpotDetails = await res.json();
+            this.selectedSpotModal = true;
+        } catch (err) {
+            console.error("Failed to fetch spot details", err);
+        }
+        },
+
+        async deleteSpot() {
+        if (!confirm("Delete this available spot?")) return;
+        try {
+            const res = await fetch(`/api/spot/${this.selectedSpot.lotId}/${this.selectedSpot.number}`, {
+            method: "DELETE",
+            headers: { "Authentication-Token": localStorage.getItem("auth_token") }
+            });
+            const data = await res.json();
+            this.message = data.message;
+            this.selectedSpotModal = false;
+            this.fetchLots();  // refresh to update UI
+        } catch (err) {
+            console.error("Failed to delete spot", err);
         }
     },
-    mounted() {
-        this.fetchLots();
-    },
-    template: `
-        <div class="container mt-4">
-            <h2 class="text-end text-success">Welcome, {{ username }}</h2>
-            <h3 class="text-center text-primary">Admin - Parking Lot Management</h3>
+        async fetchUsers() {
+            try {
+                const res = await fetch("/api/users", {
+                headers: { "Authentication-Token": localStorage.getItem("auth_token") }
+                });
+                this.users = await res.json();
+                this.showUsers = true;
+            } catch (err) {
+                console.error("Failed to fetch users", err);
+            }
+        }
 
-            <div class="alert alert-info mt-3" v-if="message">{{ message }}</div>
+  },
 
-            <h4 class="mt-4">Create New Parking Lot</h4>
-            <form @submit.prevent="createLot" class="row g-3">
-                <div class="col-md-4">
-                    <input v-model="newLot.location_name" type="text" class="form-control" placeholder="Location Name" required>
-                </div>
-                <div class="col-md-3">
-                    <input v-model="newLot.pin_code" type="text" class="form-control" placeholder="PIN Code" required>
-                </div>
-                <div class="col-md-2">
-                    <input v-model="newLot.price" type="number" step="0.01" class="form-control" placeholder="Price" required>
-                </div>
-                <div class="col-md-2">
-                    <input v-model="newLot.number_of_spots" type="number" class="form-control" placeholder="Spots" required>
-                </div>
-                <div class="col-md-1">
-                    <button type="submit" class="btn btn-success">Create</button>
-                </div>
-            </form>
+  mounted() {
+    this.fetchLots();
+  },
 
-            <h4 class="mt-5">Existing Parking Lots</h4>
-            <table class="table table-bordered mt-3">
-                <thead class="table-dark">
+  template: `
+    <div class="container mt-4">
+    <div style="height: 610px; overflow-y: scroll;">
+      <div v-if="message" class="alert alert-info">{{ message }}</div>
+
+      <!-- Parking Cards -->
+      <div class="row">
+        <div class="col-md-4 mb-4" v-for="lot in lots" :key="lot.id">
+          <div class="card shadow">
+            <div class="card-header bg-primary text-white">
+              Parking Lot #{{ lot.id }} - {{ lot.location_name }}
+            </div>
+            <div class="card-body">
+              <p><strong>PIN:</strong> {{ lot.pin_code }}</p>
+              <p><strong>Price:</strong> ₹{{ lot.price }}</p>
+              <p><strong>Total Spots:</strong> {{ lot.number_of_spots }}</p>
+              <div class="d-flex flex-wrap">
+            <span
+            v-for="(spot, index) in generateSpots(lot)"
+            :key="index"
+            class="badge me-1 mb-1"
+            :class="spot.status === 'A' ? 'bg-success' : 'bg-danger'"
+            style="cursor:pointer"
+            @click="handleSpotClick(spot)"
+            >
+            {{ spot.status }}
+            </span>
+
+              </div>
+              <div class="mt-3 text-end">
+                <button class="btn btn-sm btn-warning me-2" @click="openEditModal(lot)">Edit</button>
+                <button class="btn btn-sm btn-danger" @click="deleteLot(lot.id)">Delete</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Create Modal -->
+      <div v-if="showModal" class="modal d-block" style="background:rgba(0,0,0,.6);">
+        <div class="modal-dialog">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title">New Parking Lot</h5>
+              <button type="button" class="btn-close" @click="showModal=false"></button>
+            </div>
+            <div class="modal-body">
+              <form @submit.prevent="createLot">
+                <input v-model="newLot.location_name" class="form-control mb-2" placeholder="Location Name" required>
+                <input v-model="newLot.pin_code" class="form-control mb-2" placeholder="PIN Code" required>
+                <input v-model="newLot.price" type="number" step="0.01" class="form-control mb-2" placeholder="Price" required>
+                <input v-model="newLot.number_of_spots" type="number" class="form-control mb-2" placeholder="Total Spots" required>
+                <div class="text-end">
+                  <button type="button" class="btn btn-secondary me-2" @click="showModal=false">Cancel</button>
+                  <button type="submit" class="btn btn-primary">Create</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Edit Modal -->
+      <div v-if="showEditModal" class="modal d-block" style="background:rgba(0,0,0,.6);">
+        <div class="modal-dialog">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title">Edit Parking Lot</h5>
+              <button type="button" class="btn-close" @click="showEditModal=false"></button>
+            </div>
+            <div class="modal-body">
+              <form @submit.prevent="updateLot">
+                <input v-model="editLot.location_name" class="form-control mb-2" placeholder="Location Name" required>
+                <input v-model="editLot.pin_code" class="form-control mb-2" placeholder="PIN Code" required>
+                <input v-model="editLot.price" type="number" step="0.01" class="form-control mb-2" placeholder="Price" required>
+                <input v-model="editLot.number_of_spots" type="number" class="form-control mb-2" placeholder="Total Spots" required>
+                <div class="text-end">
+                  <button type="button" class="btn btn-secondary me-2" @click="showEditModal=false">Cancel</button>
+                  <button type="submit" class="btn btn-warning">Update</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Spot Modal -->
+        <div v-if="selectedSpotModal" class="modal d-block" style="background: rgba(0, 0, 0, 0.6);">
+        <div class="modal-dialog">
+            <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Spot #{{ selectedSpot?.number }}</h5>
+                <button type="button" class="btn-close" @click="selectedSpotModal = false"></button>
+            </div>
+            <div class="modal-body">
+                <div v-if="isOccupied && selectedSpotDetails">
+                <p><strong>Customer ID:</strong> {{ selectedSpotDetails.customer_id }}</p>
+                <p><strong>Vehicle Number:</strong> {{ selectedSpotDetails.vehicle_number }}</p>
+                <p><strong>Date:</strong> {{ selectedSpotDetails.date }}</p>
+                <p><strong>Time:</strong> {{ selectedSpotDetails.time }}</p>
+                <p><strong>Cost:</strong> ₹{{ selectedSpotDetails.cost }}</p>
+                <div class="text-end">
+                    <button class="btn btn-secondary" @click="selectedSpotModal = false">Close</button>
+                </div>
+                </div>
+                <div v-else>
+                <p><strong>Status:</strong> Available</p>
+                <p><strong>Spot ID:</strong> {{ selectedSpot?.number }}</p>
+                <div class="text-end">
+                    <button class="btn btn-danger me-2" @click="deleteSpot">Delete</button>
+                    <button class="btn btn-secondary" @click="selectedSpotModal = false">Cancel</button>
+                </div>
+                </div>
+            </div>
+            </div>
+        </div>
+        </div>
+        <!-- Users Modal -->
+        <div v-if="showUsers" class="card mt-4">
+            <div class="card-header bg-secondary text-white">
+                <h5 class="mb-0">Registered Users</h5>
+            </div>
+            <div class="card-body">
+                <table class="table table-striped">
+                <thead>
                     <tr>
-                        <th>ID</th>
-                        <th>Location</th>
-                        <th>PIN</th>
-                        <th>Price</th>
-                        <th>Total Spots</th>
-                        <th>Action</th>
+                    <th>ID</th>
+                    <th>Username</th>
+                    <th>Email</th>
+                    <th>Roles</th>
                     </tr>
                 </thead>
                 <tbody>
-                    <tr v-for="lot in lots" :key="lot.id">
-                        <td>{{ lot.id }}</td>
-                        <td>{{ lot.location_name }}</td>
-                        <td>{{ lot.pin_code }}</td>
-                        <td>{{ lot.price }}</td>
-                        <td>{{ lot.number_of_spots }}</td>
-                        <td>
-                            <button class="btn btn-danger btn-sm" @click="deleteLot(lot.id)">Delete</button>
-                        </td>
+                    <tr v-for="user in users" :key="user.id">
+                    <td>{{ user.id }}</td>
+                    <td>{{ user.username }}</td>
+                    <td>{{ user.email }}</td>
+                    <td>{{ user.roles.join(', ') }}</td>
                     </tr>
                 </tbody>
-            </table>
+                </table>
+                <div class="text-end">
+                <button class="btn btn-secondary" @click="showUsers = false">Close</button>
+                </div>
+            </div>
         </div>
-    `
+
+      <!-- Floating Add Button (above footer) -->
+      <div class="text-center mt-4">
+        <button class="btn btn-success px-4" @click="showModal = true">
+            ➕ Add Parking Lot
+        </button>
+      </div>
+
+    </div>
+    </div>
+  `
 };

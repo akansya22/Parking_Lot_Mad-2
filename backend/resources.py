@@ -17,18 +17,32 @@ class LotApi(Resource):
     @auth_required('token')
     @roles_accepted('admin', 'user')
     def get(self):
-        lot_jsons = []
         lots = Parking_Lot.query.all()
+        result = []
 
         for lot in lots:
-            lot_jsons.append({
+            # Fetch spots from DB
+            spots = Parking_Spot.query.filter_by(lot_id=lot.id).order_by(Parking_Spot.id).all()
+            spot_list = [
+                {
+                    "number": i + 1,
+                    "status": spot.status,
+                    "lotId": lot.id
+                } for i, spot in enumerate(spots)
+            ]
+
+            result.append({
                 "id": lot.id,
                 "location_name": lot.location_name,
                 "price": lot.price,
                 "pin_code": lot.pin_code,
-                "number_of_spots": lot.number_of_spots
+                "number_of_spots": lot.number_of_spots,
+                "spots": spot_list  # ← add this
             })
-        return lot_jsons, 200
+
+        return result, 200
+
+
 
     @auth_required('token')
     @roles_required('admin')
@@ -108,3 +122,137 @@ class LotEditDeleteApi(Resource):
 # Cleaner RESTful route structure
 api.add_resource(LotApi, "/api/lot")                      # GET (list), POST (create)
 api.add_resource(LotEditDeleteApi, "/api/lot/<int:lot_id>")  # PUT, DELETE
+
+
+
+
+
+class SpotListByLot(Resource):
+    @auth_required('token')
+    @roles_required('admin')
+    def get(self, lot_id):
+        spots = Parking_Spot.query.filter_by(lot_id=lot_id).all()
+        return [
+            {
+                "id": spot.id,
+                "status": "Occupied" if spot.status == "O" else "Available"
+            } for spot in spots
+        ]
+api.add_resource(SpotListByLot, "/api/lot/<int:lot_id>/spots")
+
+
+
+
+
+
+class SpotDetailsApi(Resource):
+    @auth_required('token')
+    @roles_required('admin')
+    def get(self, lot_id, spot_number):
+        # Get the spot by lot_id and spot_number
+        spot = Parking_Spot.query.filter_by(lot_id=lot_id).order_by(Parking_Spot.id).all()
+        if not spot or spot_number > len(spot):
+            return {"message": "Spot not found"}, 404
+
+        target_spot = spot[spot_number - 1]
+        if target_spot.status != 'O':
+            return {"message": "Spot is not occupied"}, 400
+
+        # Return mock data or actual booking details
+        return {
+            "spot_id": target_spot.id,
+            "customer_id": target_spot.customer_id or "CUST123",  # Optional fallback
+            "vehicle_number": target_spot.vehicle_number or "BR01XX0000",
+            "time": "09:30 AM",
+            "date": "2025-07-08",
+            "cost": 50.0
+        }, 200
+
+    @auth_required('token')
+    @roles_required('admin')
+    def delete(self, lot_id, spot_number):
+        # Find spot based on order
+        spot = Parking_Spot.query.filter_by(lot_id=lot_id).order_by(Parking_Spot.id).all()
+        if not spot or spot_number > len(spot):
+            return {"message": "Spot not found"}, 404
+
+        target_spot = spot[spot_number - 1]
+        if target_spot.status != 'A':
+            return {"message": "Cannot delete occupied spot"}, 400
+
+        db.session.delete(target_spot)
+        db.session.commit()
+        return {"message": "Spot deleted successfully"}, 200
+api.add_resource(SpotDetailsApi, "/api/spot/<int:lot_id>/<int:spot_number>")
+
+
+
+
+
+
+
+
+class UserListApi(Resource):
+    @auth_required('token')
+    @roles_required('admin')
+    def get(self):
+        users = User.query.all()
+        return [{
+            "id": user.id,
+            "username": user.username,
+            "email": user.email,
+            "roles": [role.name for role in user.roles]
+        } for user in users], 200
+
+api.add_resource(UserListApi, "/api/users")
+
+
+
+
+
+
+
+
+
+
+class UserList(Resource):
+    @auth_required('token')
+    @roles_required('admin')
+    def get(self):
+        users = User.query.all()
+        return [{
+            "id": u.id,
+            "username": u.username,
+            "email": u.email,
+            "roles": [r.name for r in u.roles]
+        } for u in users], 200
+
+api.add_resource(UserList, "/api/users")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+class AdminSummary(Resource):
+    @auth_required('token')
+    @roles_required('admin')
+    def get(self):
+        return {
+            "total_users": User.query.count(),
+            "total_lots": Parking_Lot.query.count(),
+            "total_spots": Parking_Spot.query.count()
+        }, 200
+
+api.add_resource(AdminSummary, "/api/admin/summary")

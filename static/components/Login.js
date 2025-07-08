@@ -22,17 +22,17 @@ export default {
         </div>
     </div>`,
 
-    data: function() {
+    data: function () {
         return {
             formData: {
                 email: '',
                 password: ''
             },
             message: ''
-        }
+        };
     },
     methods: {
-        loginUser: function() {
+        loginUser: function () {
             fetch('/api/login', {
                 method: 'POST',
                 headers: {
@@ -42,18 +42,21 @@ export default {
             })
             .then(response => response.json())
             .then(data => {
-                console.log(data)
+                console.log(data);
                 if (data["auth-token"]) {
-                    localStorage.setItem("auth_token", data["auth-token"])
-                    localStorage.setItem("id", data.id)
-                    localStorage.setItem("username", data.username)
+                    localStorage.setItem("auth_token", data["auth-token"]);
+                    localStorage.setItem("id", data.id);
+                    localStorage.setItem("username", data.username);
+                    localStorage.setItem("roles", JSON.stringify(data.roles)); // ✅ Store roles properly
+
+                    // Navigate based on role
                     if (data.roles.includes("admin")) {
-                        this.$router.push('/admin')
+                        this.$router.push('/admin');
                     } else {
-                        this.$router.push('/user')
+                        this.$router.push('/user');
                     }
                 } else {
-                    this.message = data.message
+                    this.message = data.message;
                 }
             })
             .catch(err => {
@@ -62,4 +65,4 @@ export default {
             });
         }
     }
-}
+};
