@@ -98,16 +98,9 @@ export default {
     },
 
     generateSpots(lot) {
-        const spots = [];
-        for (let i = 1; i <= lot.number_of_spots; i++) {
-            spots.push({
-            number: i,
-            status: i <= (lot.occupied_spots || 0) ? 'O' : 'A',
-            lotId: lot.id
-            });
-        }
-        return spots;
+      return lot.spots || [];
     },
+
 
     handleSpotClick(spot) {
         this.selectedSpot = spot;

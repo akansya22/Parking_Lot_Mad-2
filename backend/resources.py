@@ -36,7 +36,7 @@ class LotApi(Resource):
                 "location_name": lot.location_name,
                 "price": lot.price,
                 "pin_code": lot.pin_code,
-                "number_of_spots": lot.number_of_spots,
+                "number_of_spots": len(spots),
                 "spots": spot_list  # ← add this
             })
 
@@ -149,24 +149,30 @@ class SpotDetailsApi(Resource):
     @auth_required('token')
     @roles_required('admin')
     def get(self, lot_id, spot_number):
-        # Get the spot by lot_id and spot_number
-        spot = Parking_Spot.query.filter_by(lot_id=lot_id).order_by(Parking_Spot.id).all()
-        if not spot or spot_number > len(spot):
+        # Get the spot list ordered by ID so spot_number works
+        spots = Parking_Spot.query.filter_by(lot_id=lot_id).order_by(Parking_Spot.id).all()
+        if not spots or spot_number > len(spots):
             return {"message": "Spot not found"}, 404
 
-        target_spot = spot[spot_number - 1]
+        target_spot = spots[spot_number - 1]
         if target_spot.status != 'O':
             return {"message": "Spot is not occupied"}, 400
 
-        # Return mock data or actual booking details
+        # ✅ Get the latest reservation for this spot
+        latest_res = Reservation.query.filter_by(spot_id=target_spot.id).order_by(Reservation.parking_timestamp.desc()).first()
+
+        if not latest_res:
+            return {"message": "No reservation found"}, 404
+
         return {
             "spot_id": target_spot.id,
-            "customer_id": target_spot.customer_id or "CUST123",  # Optional fallback
-            "vehicle_number": target_spot.vehicle_number or "BR01XX0000",
-            "time": "09:30 AM",
-            "date": "2025-07-08",
-            "cost": 50.0
+            "customer_id": latest_res.user_id,
+            "vehicle_number": latest_res.vehicle_number,
+            "date": latest_res.parking_timestamp.strftime("%d/%m/%Y"),
+            "time": latest_res.parking_timestamp.strftime("%I:%M:%S %p"),
+            "cost": latest_res.parking_cost
         }, 200
+
 
     @auth_required('token')
     @roles_required('admin')
@@ -179,6 +185,9 @@ class SpotDetailsApi(Resource):
         target_spot = spot[spot_number - 1]
         if target_spot.status != 'A':
             return {"message": "Cannot delete occupied spot"}, 400
+        lot = Parking_Lot.query.get(lot_id)
+        if lot:
+            lot.number_of_spots -= 1
 
         db.session.delete(target_spot)
         db.session.commit()
@@ -205,42 +214,6 @@ class UserListApi(Resource):
         } for user in users], 200
 
 api.add_resource(UserListApi, "/api/users")
-
-
-
-
-
-
-
-
-
-
-class UserList(Resource):
-    @auth_required('token')
-    @roles_required('admin')
-    def get(self):
-        users = User.query.all()
-        return [{
-            "id": u.id,
-            "username": u.username,
-            "email": u.email,
-            "roles": [r.name for r in u.roles]
-        } for u in users], 200
-
-api.add_resource(UserList, "/api/users")
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 

@@ -49,6 +49,9 @@ export default {
                     localStorage.setItem("username", data.username);
                     localStorage.setItem("roles", JSON.stringify(data.roles)); // ✅ Store roles properly
 
+                    // 👇 Tell Navbar to recheck login status immediately
+                    eventBus.$emit('login-updated');
+
                     // Navigate based on role
                     if (data.roles.includes("admin")) {
                         this.$router.push('/admin');

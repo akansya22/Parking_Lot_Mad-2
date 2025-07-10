@@ -1,3 +1,4 @@
+
 # models.py
 from .database import db
 from flask_security import UserMixin, RoleMixin
@@ -58,7 +59,11 @@ class Parking_Spot(db.Model):
     lot_id = db.Column(db.Integer, db.ForeignKey('parking_lot.id'), nullable=False)
     status = db.Column(db.String(1), default='A')  # A = Available, O = Occupied
 
+    customer_id = db.Column(db.Integer)  # 👈 Add this
+    vehicle_number = db.Column(db.String(20))  # 👈 Add this
+
     reservations = db.relationship('Reservation', backref='parking_spot', lazy=True)
+
 
 # --------------------------
 # Reservation Model
@@ -73,6 +78,10 @@ class Reservation(db.Model):
     leaving_timestamp = db.Column(db.DateTime, nullable=True)
     parking_cost = db.Column(db.Float, default=0.0)
     remarks = db.Column(db.String(255), nullable=True)
+    
+    # ✅ Add this line
+    vehicle_number = db.Column(db.String(20), nullable=False)
+
 
 
 

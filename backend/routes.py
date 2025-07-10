@@ -1,9 +1,10 @@
 from .database import db
-from .models import User, Role
-from flask import current_app as app, jsonify, request, render_template
-from flask_security import auth_required, roles_required, roles_accepted, current_user, login_user
-from werkzeug.security import check_password_hash, generate_password_hash
-from .util import roles_list
+from .models import User, Role, Parking_Spot, Parking_Lot, Reservation
+from flask import current_app as app, jsonify, request, render_template 
+from flask_security import auth_required, roles_required, roles_accepted, current_user, login_user 
+from werkzeug.security import check_password_hash, generate_password_hash 
+from .util import roles_list 
+from datetime import datetime, timedelta  # Make sure it's imported at the top
 
 
 @app.route('/', methods=['GET'])
@@ -87,6 +88,196 @@ def create_user():
         "message": "User already exists!",
         "success": False
     }), 400
+
+
+
+
+@app.route('/api/spot/<int:lot_id>/<int:spot_number>', methods=['DELETE'])
+@auth_required('token')
+@roles_required('admin')
+def delete_spot(lot_id, spot_number):
+    spot = Parking_Spot.query.filter_by(lot_id=lot_id, spot_number=spot_number).first()
+    if not spot:
+        return jsonify({"message": "Spot not found"}), 404
+
+    db.session.delete(spot)
+    db.session.commit()
+
+    return jsonify({"message": f"Spot {spot_number} deleted successfully"}), 200
+
+
+
+
+
+
+
+
+
+@app.route('/api/book', methods=['POST'])
+@auth_required('token')
+@roles_accepted('user', 'admin')
+def book_spot():
+    try:
+        data = request.get_json()
+        lot_id = data.get("lot_id")
+        vehicle_number = data.get("vehicle_number")
+
+        if not lot_id or not vehicle_number:
+            return jsonify({"message": "Lot ID and vehicle number are required"}), 400
+
+        spot = Parking_Spot.query.filter_by(lot_id=lot_id, status='A').first()
+        if not spot:
+            return jsonify({"message": "No available spots"}), 400
+
+        # Update spot
+        spot.status = 'O'
+        db.session.commit()
+
+        # Create reservation
+        reservation = Reservation(
+            user_id=current_user.id,
+            spot_id=spot.id,
+            vehicle_number=vehicle_number,
+            parking_timestamp=datetime.utcnow()
+        )
+        db.session.add(reservation)
+        db.session.commit()
+
+        return jsonify({"message": f"Spot {spot.id} reserved successfully!"}), 200
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": "Booking failed", "details": str(e)}), 500
+
+
+
+
+
+
+
+
+
+@app.route('/api/user/bookings')
+@auth_required('token')
+@roles_accepted('user', 'admin')
+def user_bookings():
+    try:
+        reservations = Reservation.query.filter_by(user_id=current_user.id).order_by(Reservation.id.desc()).all()
+        result = []
+
+        for r in reservations:
+            lot = r.parking_spot.parking_lot
+            result.append({
+                "id": r.spot_id,
+                "lot_name": lot.location_name,
+                "spot_number": r.spot_id,
+                "vehicle_number": r.vehicle_number,
+                "time": (r.parking_timestamp + timedelta(hours=5, minutes=30)).isoformat(),
+                "release_time": (r.leaving_timestamp + timedelta(hours=5, minutes=30)).isoformat() if r.leaving_timestamp else None,
+                "released": bool(r.leaving_timestamp),
+                "price_per_hour": lot.price  # ✅ Include price
+            })
+
+
+        return jsonify(result), 200
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": "Internal error", "details": str(e)}), 500
+
+
+
+
+
+
+@app.route('/api/release', methods=['POST'])
+@auth_required('token')
+@roles_accepted('user', 'admin')
+def release_spot():
+    try:
+        data = request.get_json()
+        spot_id = data.get("spot_id")
+
+        spot = Parking_Spot.query.get(spot_id)
+        if not spot:
+            return jsonify({"message": "Invalid spot ID"}), 404
+
+        reservation = Reservation.query.filter_by(
+            spot_id=spot_id, user_id=current_user.id
+        ).order_by(Reservation.id.desc()).first()
+
+        if not reservation or reservation.leaving_timestamp:
+            return jsonify({"message": "No active reservation found"}), 400
+
+        # Update reservation
+        reservation.leaving_timestamp = datetime.utcnow()
+        spot.status = 'A'
+        db.session.commit()
+
+        return jsonify({"message": "Spot released successfully"}), 200
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({"message": "Error releasing spot", "error": str(e)}), 500
+
+
+
+
+
+
+
+@app.route('/api/admin/lot-stats')
+@auth_required('token')
+@roles_required('admin')
+def lot_stats():
+    try:
+        lots = Parking_Lot.query.all()
+        result = []
+
+        for lot in lots:
+            occupied = Parking_Spot.query.filter_by(lot_id=lot.id, status='O').count()
+            available = Parking_Spot.query.filter_by(lot_id=lot.id, status='A').count()
+            result.append({
+                "location_name": lot.location_name,
+                "occupied": occupied,
+                "available": available
+            })
+
+        return jsonify(result), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+
+
+
+@app.route('/api/user/parking-summary')
+@auth_required('token')
+@roles_accepted('user', 'admin')
+def user_parking_summary():
+    try:
+        # Get all reservations by current user, join with parking_lot
+        results = db.session.query(
+            Parking_Lot.location_name,
+            db.func.count(Reservation.id)
+        ).join(Parking_Spot, Parking_Lot.id == Parking_Spot.lot_id)\
+         .join(Reservation, Parking_Spot.id == Reservation.spot_id)\
+         .filter(Reservation.user_id == current_user.id)\
+         .group_by(Parking_Lot.location_name)\
+         .all()
+
+        # Format the result
+        summary = [{"location": row[0], "count": row[1]} for row in results]
+        return jsonify(summary), 200
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": "Failed to fetch parking summary"}), 500
+
+
 
 
 
