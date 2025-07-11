@@ -60,8 +60,13 @@ class LotApi(Resource):
         db.session.add(lot)
         db.session.commit()
 
-        for _ in range(number_of_spots):
-            db.session.add(Parking_Spot(lot_id=lot.id))
+        for i in range(number_of_spots):
+            db.session.add(Parking_Spot(
+                lot_id=lot.id,
+                spot_number=str(i + 1),  # 👈 Assign spot_number
+                status='A'
+            ))
+
         db.session.commit()
 
         return {"message": "Parking lot created successfully!"}, 201
@@ -112,9 +117,11 @@ class LotEditDeleteApi(Resource):
         if not lot:
             return {"message": "Lot not found"}, 404
 
+        # Optional: Check if any spot is still occupied
         occupied_count = Parking_Spot.query.filter_by(lot_id=lot.id, status='O').count()
         if occupied_count > 0:
-            return {"message": "Can't delete. Some spots are occupied."}, 400
+            return {"message": "Cannot delete. Some spots are still occupied."}, 400
+
 
         db.session.delete(lot)
         db.session.commit()
@@ -238,10 +245,42 @@ class AdminSummary(Resource):
     @auth_required('token')
     @roles_required('admin')
     def get(self):
+        total_users = User.query.count()
+        total_lots = Parking_Lot.query.count()
+        total_spots = Parking_Spot.query.count()
+
+        # ✅ Total revenue calculation (only paid, i.e., where cost > 0)
+        total_revenue = db.session.query(
+            db.func.sum(Reservation.parking_cost)
+        ).filter(Reservation.parking_cost > 0).scalar() or 0.0
+
         return {
-            "total_users": User.query.count(),
-            "total_lots": Parking_Lot.query.count(),
-            "total_spots": Parking_Spot.query.count()
+            "total_users": total_users,
+            "total_lots": total_lots,
+            "total_spots": total_spots,
+            "total_revenue": round(total_revenue, 2)  # rounded for display
         }, 200
 
+
 api.add_resource(AdminSummary, "/api/admin/summary")
+
+
+class RevenuePerLot(Resource):
+    @auth_required('token')
+    @roles_required('admin')
+    def get(self):
+        results = db.session.query(
+            Parking_Lot.location_name,
+            db.func.sum(Reservation.parking_cost)
+        ).join(Parking_Spot, Parking_Spot.lot_id == Parking_Lot.id
+        ).join(Reservation, Reservation.spot_id == Parking_Spot.id
+        ).group_by(Parking_Lot.id).all()
+
+        revenue_data = [
+            {"location_name": row[0], "revenue": round(row[1] or 0, 2)}
+            for row in results
+        ]
+        return revenue_data, 200
+
+# Add this to your api
+api.add_resource(RevenuePerLot, "/api/admin/revenue-per-lot")

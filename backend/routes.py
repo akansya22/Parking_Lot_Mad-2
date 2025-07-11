@@ -141,6 +141,8 @@ def book_spot():
             user_id=current_user.id,
             spot_id=spot.id,
             vehicle_number=vehicle_number,
+            lot_name_snapshot=spot.parking_lot.location_name,  # store name
+            spot_number_snapshot=spot.spot_number,              # store spot
             parking_timestamp=datetime.utcnow()
         )
         db.session.add(reservation)
@@ -170,16 +172,17 @@ def user_bookings():
         result = []
 
         for r in reservations:
-            lot = r.parking_spot.parking_lot
+            spot = r.parking_spot
+            lot = spot.parking_lot if spot else None
             result.append({
                 "id": r.spot_id,
-                "lot_name": lot.location_name,
-                "spot_number": r.spot_id,
+                "lot_name": f"{lot.location_name}" if lot else f"{r.lot_name_snapshot} (Spot No longer available)",
+                "spot_number": spot.spot_number if spot else r.spot_number_snapshot,
                 "vehicle_number": r.vehicle_number,
                 "time": (r.parking_timestamp + timedelta(hours=5, minutes=30)).isoformat(),
                 "release_time": (r.leaving_timestamp + timedelta(hours=5, minutes=30)).isoformat() if r.leaving_timestamp else None,
                 "released": bool(r.leaving_timestamp),
-                "price_per_hour": lot.price  # ✅ Include price
+                "price_per_hour": lot.price if lot else "N/A"
             })
 
 
@@ -233,6 +236,9 @@ def release_spot():
 
         # Reset the spot
         spot.status = 'A'
+        spot.customer_id = None
+        spot.vehicle_number = None
+
         db.session.commit()
 
         return jsonify({"message": f"Spot released. ₹{cost} charged"}), 200
@@ -308,7 +314,7 @@ def user_parking_summary():
 @roles_required('admin')
 def get_users():
     try:
-        users = User.query.all()
+        users = User.query.filter(~User.roles.any(Role.name == 'admin')).all()
         result = []
 
         for u in users:

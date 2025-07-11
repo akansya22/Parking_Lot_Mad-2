@@ -1,6 +1,6 @@
 export default {
   template: `
-    <div class="container mt-4" style="max-width: 1000px; height: 610px;" >
+    <div class="container mt-4" style="max-width: 1000px; height: 610px; overflow-y: scroll;" >
       <h3 class="text-center text-primary">📊 Admin Summary</h3>
 
       <div class="row mt-4">
@@ -30,12 +30,26 @@ export default {
             </div>
           </div>
         </div>
-      </div>
+        <div class="col-md-3" v-if="summary">
+          <div class="card text-white bg-warning mb-3">
+            <div class="card-body">
+              <h5 class="card-title">Total Revenue</h5>
+              <p class="card-text fs-4">₹{{ summary.total_revenue }}</p>
+            </div>
+          </div>
+        </div>
+    </div>
 
       <!-- Chart Section -->
       <div class="container mt-4" style="max-width: 800px;">
         <h5 class="text-center text-secondary">Parking Spot Occupancy</h5>
         <canvas id="lotChart" height="100"></canvas>
+      </div>
+
+      <!-- Revenue Chart -->
+      <div class="container mt-4" style="max-width: 800px;">
+        <h5 class="text-center text-secondary">Revenue by Parking Lot</h5>
+        <canvas id="revenueChart" height="100"></canvas>
       </div>
 
       <div class="text-center mt-4" v-if="!summary">
@@ -48,7 +62,8 @@ export default {
   data() {
     return {
       summary: null,
-      lotStats: []
+      lotStats: [],
+      revenueData: []
     };
   },
 
@@ -68,8 +83,13 @@ export default {
       const statsData = await statsRes.json();
       this.lotStats = statsData;
 
-      // Wait for DOM then render chart
-      this.$nextTick(() => this.renderChart());
+      // Fetch revenue data// Inside try block of mounted()
+      const revenueRes = await fetch("/api/admin/revenue-per-lot", { headers });
+      this.revenueData = await revenueRes.json();
+      this.$nextTick(() => {
+        this.renderChart();
+        this.renderRevenueChart(); // 👈 Call new chart method
+      });
 
     } catch (err) {
       console.error("Failed to fetch admin summary or lot stats", err);
@@ -112,8 +132,38 @@ export default {
           }
         }
       });
+    },
+    renderRevenueChart() {
+      const labels = this.revenueData.map(item => item.location_name);
+      const values = this.revenueData.map(item => item.revenue);
+
+      const ctx = document.getElementById('revenueChart').getContext('2d');
+      new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: 'Revenue (₹)',
+            backgroundColor: 'rgba(54, 162, 235, 0.7)',
+            borderColor: 'rgba(54, 162, 235, 1)',
+            data: values
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            title: {
+              display: true,
+              text: 'Revenue by Parking Lot'
+            }
+          },
+          scales: {
+            y: {
+              beginAtZero: true
+            }
+          }
+        }
+      });
     }
   }
-
-
 };

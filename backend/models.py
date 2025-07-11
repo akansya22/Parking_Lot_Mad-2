@@ -75,9 +75,13 @@ class Reservation(db.Model):
     __tablename__ = "reservation"
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    spot_id = db.Column(db.Integer, db.ForeignKey('parking_spot.id'), nullable=False)
+    spot_id = db.Column(db.Integer, db.ForeignKey('parking_spot.id'), nullable=True)
     parking_timestamp = db.Column(db.DateTime, default=datetime.utcnow)
     leaving_timestamp = db.Column(db.DateTime, nullable=True)
+
+    lot_name_snapshot = db.Column(db.String(100))  # <-- NEW
+    spot_number_snapshot = db.Column(db.String(100))  # <-- NEW
+    
     parking_cost = db.Column(db.Float, default=0.0)
     
     # ✅ Add this line
