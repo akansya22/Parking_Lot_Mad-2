@@ -1,10 +1,11 @@
 from .database import db
 from .models import User, Role, Parking_Spot, Parking_Lot, Reservation
-from flask import current_app as app, jsonify, request, render_template 
+from flask import current_app as app, jsonify, request, render_template
 from flask_security import auth_required, roles_required, roles_accepted, current_user, login_user 
 from werkzeug.security import check_password_hash, generate_password_hash 
 from .util import roles_list 
 from datetime import datetime, timedelta  # Make sure it's imported at the top
+from math import ceil  
 
 
 @app.route('/', methods=['GET'])
@@ -131,6 +132,8 @@ def book_spot():
 
         # Update spot
         spot.status = 'O'
+        spot.customer_id = current_user.id
+        spot.vehicle_number = vehicle_number
         db.session.commit()
 
         # Create reservation
@@ -210,17 +213,35 @@ def release_spot():
         if not reservation or reservation.leaving_timestamp:
             return jsonify({"message": "No active reservation found"}), 400
 
-        # Update reservation
+        # Set the release time
         reservation.leaving_timestamp = datetime.utcnow()
+
+                # ⏱️ Calculate duration in hours
+        duration = (reservation.leaving_timestamp - reservation.parking_timestamp).total_seconds() / 3600
+        duration = max(duration, 0.01)  # Prevent zero duration
+
+        # ⬆️ Round up to nearest full hour
+        hours_to_charge = ceil(duration)
+
+        # 💸 Get the lot price
+        lot_price = spot.parking_lot.price
+
+        # 🧮 Final cost
+        cost = round(hours_to_charge * lot_price, 2)
+        reservation.parking_cost = cost
+
+
+        # Reset the spot
         spot.status = 'A'
         db.session.commit()
 
-        return jsonify({"message": "Spot released successfully"}), 200
+        return jsonify({"message": f"Spot released. ₹{cost} charged"}), 200
 
     except Exception as e:
         import traceback
         traceback.print_exc()
         return jsonify({"message": "Error releasing spot", "error": str(e)}), 500
+
 
 
 
@@ -276,8 +297,49 @@ def user_parking_summary():
         import traceback
         traceback.print_exc()
         return jsonify({"error": "Failed to fetch parking summary"}), 500
+    
 
 
 
 
 
+@app.route('/api/users')
+@auth_required('token')
+@roles_required('admin')
+def get_users():
+    try:
+        users = User.query.all()
+        result = []
+
+        for u in users:
+            reservations = Reservation.query.filter_by(user_id=u.id).order_by(Reservation.id.desc()).all()
+            bookings = []
+
+            for r in reservations:
+                if not r.parking_spot or not r.parking_spot.parking_lot:
+                    continue  # skip incomplete relationships
+
+                bookings.append({
+                    "lot_name": r.parking_spot.parking_lot.location_name,
+                    "spot_number": r.parking_spot.spot_number,
+                    "vehicle_number": r.vehicle_number,
+                    "time": r.parking_timestamp.strftime('%d-%m-%Y %I:%M %p'),
+                    "release_time": r.leaving_timestamp.strftime('%d-%m-%Y %I:%M %p') if r.leaving_timestamp else None,
+                    "released": bool(r.leaving_timestamp),
+                    "amount_paid": r.parking_cost 
+                })
+
+
+            result.append({
+                "id": u.id,
+                "username": u.username,
+                "email": u.email,
+                "roles": [role.name for role in u.roles],
+                "bookings": bookings
+            })
+
+        return jsonify(result), 200
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": "Failed to fetch users"}), 500

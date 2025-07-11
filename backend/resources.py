@@ -37,8 +37,10 @@ class LotApi(Resource):
                 "price": lot.price,
                 "pin_code": lot.pin_code,
                 "number_of_spots": len(spots),
-                "spots": spot_list  # ← add this
+                "occupied_spots": sum(1 for s in spots if s.status == 'O'),  # ✅ ADD THIS LINE
+                "spots": spot_list
             })
+
 
         return result, 200
 
@@ -206,14 +208,28 @@ class UserListApi(Resource):
     @roles_required('admin')
     def get(self):
         users = User.query.all()
-        return [{
-            "id": user.id,
-            "username": user.username,
-            "email": user.email,
-            "roles": [role.name for role in user.roles]
-        } for user in users], 200
+        result = []
+        for user in users:
+            bookings = Reservation.query.filter_by(user_id=user.id).all()
+            booking_list = []
+            for b in bookings:
+                booking_list.append({
+                    "vehicle_number": b.vehicle_number,
+                    "parking_time": b.parking_timestamp.strftime('%d-%m-%Y %I:%M %p'),
+                    "release_time": b.release_timestamp.strftime('%d-%m-%Y %I:%M %p') if b.release_timestamp else None,
+                    "cost": b.parking_cost if b.parking_cost else "To be calculated"
+                })
+            result.append({
+                "id": user.id,
+                "username": user.username,
+                "email": user.email,
+                "roles": [role.name for role in user.roles],
+                "bookings": booking_list  # 👈 VERY IMPORTANT
+            })
+        return result, 200
 
-api.add_resource(UserListApi, "/api/users")
+
+
 
 
 

@@ -61,6 +61,8 @@ class Parking_Spot(db.Model):
 
     customer_id = db.Column(db.Integer)  # 👈 Add this
     vehicle_number = db.Column(db.String(20))  # 👈 Add this
+    spot_number = db.Column(db.String(10))  # Add this line
+
 
     reservations = db.relationship('Reservation', backref='parking_spot', lazy=True)
 
@@ -77,7 +79,6 @@ class Reservation(db.Model):
     parking_timestamp = db.Column(db.DateTime, default=datetime.utcnow)
     leaving_timestamp = db.Column(db.DateTime, nullable=True)
     parking_cost = db.Column(db.Float, default=0.0)
-    remarks = db.Column(db.String(255), nullable=True)
     
     # ✅ Add this line
     vehicle_number = db.Column(db.String(20), nullable=False)

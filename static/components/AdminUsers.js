@@ -1,50 +1,72 @@
 export default {
-  data() {
-    return {
-      users: [],
-      message: ""
-    };
-  },
-  async mounted() {
-    try {
-      const res = await fetch("/api/users", {
-        headers: {
-          "Authentication-Token": localStorage.getItem("auth_token")
-        }
-      });
-      const data = await res.json();
-      this.users = data;
-    } catch (err) {
-      this.message = "Failed to load users.";
-      console.error(err);
-    }
-  },
   template: `
     <div class="container mt-4">
-      <div v-if="message" class="alert alert-danger">{{ message }}</div>
-      <div class="card">
-        <div class="card-header bg-primary text-white">Registered Users</div>
+      <h3 class="text-primary mb-4">Registered Users & Bookings</h3>
+
+      <div v-for="user in users" :key="user.id" class="card mb-3 shadow-sm">
         <div class="card-body">
-          <table class="table table-bordered table-striped">
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>Username</th>
-                <th>Email</th>
-                <th>Roles</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="user in users" :key="user.id">
-                <td>{{ user.id }}</td>
-                <td>{{ user.username }}</td>
-                <td>{{ user.email }}</td>
-                <td>{{ user.roles.join(', ') }}</td>
-              </tr>
-            </tbody>
-          </table>
+          <h5 class="card-title">ID: {{ user.id }} | Username: {{ user.username }}</h5>
+
+          <div v-if="user.bookings && user.bookings.length > 0">
+
+            <table class="table table-bordered mt-3">
+              <thead class="table-light">
+                <tr>
+                  <th>Location</th>
+                  <th>Vehicle Number</th>
+                  <th>Parking Time</th>
+                  <th>Release Time</th>
+                  <th>Amount Paid</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="booking in user.bookings" :key="booking.time + booking.vehicle_number">
+                  <td>{{ booking.lot_name }}</td>
+                  <td>{{ booking.vehicle_number }}</td>
+                  <td>{{ booking.time }}</td>
+                  <td>
+                    <span v-if="booking.release_time">{{ booking.release_time }}</span>
+                    <span v-else class="text-muted">Still Parked</span>
+                  </td>
+                  <td>
+                    <span v-if="booking.amount_paid && booking.amount_paid > 0">₹{{ booking.amount_paid }}</span>
+                    <span v-else class="text-warning">Pending</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div v-else class="text-muted">No bookings yet.</div>
         </div>
       </div>
     </div>
-  `
+  `,
+
+  data() {
+    return {
+      users: []
+    };
+  },
+
+  methods: {
+    fetchUsers() {
+      fetch("/api/users", {
+        headers: {
+          "Authentication-Token": localStorage.getItem("auth_token")
+        }
+      })
+        .then(res => res.json())
+        .then(data => {
+          this.users = data;
+        })
+        .catch(err => {
+          console.error("Failed to fetch users:", err);
+          alert("Something went wrong while loading user data.");
+        });
+    }
+  },
+
+  mounted() {
+    this.fetchUsers();
+  }
 };
