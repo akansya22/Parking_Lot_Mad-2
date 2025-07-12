@@ -1,19 +1,43 @@
 import smtplib
-from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+from email.mime.base import MIMEBase
+from email import encoders
 
-def send_email(to_email, subject, message):
-    sender_email = "your_email@gmail.com"
-    sender_password = "your_app_password"
+# MailHog config
+SMTP_SERVER_HOST = "localhost"
+SMTP_SERVER_PORT = 1025
+SENDER_ADDRESS = "parkinglot@donotreply.in"
+SENDER_PASSWORD = ""  # Not used for local dev SMTP
 
+def send_email(to_address, subject, message, content="html", attachment_file=None):
+    print("➡️ Preparing email to:", to_address)
     msg = MIMEMultipart()
-    msg["From"] = sender_email
-    msg["To"] = to_email
-    msg["Subject"] = subject
+    msg['From'] = SENDER_ADDRESS
+    msg['To'] = to_address
+    msg['Subject'] = subject
 
-    msg.attach(MIMEText(message, "html"))
+    # Add body
+    if content == "html":
+        msg.attach(MIMEText(message, "html"))
+    else:
+        msg.attach(MIMEText(message, "plain"))
 
-    with smtplib.SMTP("smtp.gmail.com", 587) as server:
-        server.starttls()
-        server.login(sender_email, sender_password)
-        server.send_message(msg)
+    # Attach file if needed
+    if attachment_file:
+        print("📎 Attaching file:", attachment_file)
+        with open(attachment_file, 'rb') as attachment:
+            part = MIMEBase("application", "octet-stream")
+            part.set_payload(attachment.read())
+            encoders.encode_base64(part)
+            part.add_header("Content-Disposition", f"attachment; filename={attachment_file}")
+            msg.attach(part)
+
+    # Send via local SMTP (MailHog)
+    print("📤 Sending email via localhost:1025...")
+    s = smtplib.SMTP(host=SMTP_SERVER_HOST, port=SMTP_SERVER_PORT)
+    s.send_message(msg)
+    s.quit()
+    print("✅ Email sent.")
+
+    return True

@@ -6,10 +6,9 @@ from werkzeug.security import check_password_hash, generate_password_hash
 from backend.utils import roles_list 
 from datetime import datetime, timedelta  # Make sure it's imported at the top
 from math import ceil  
-from backend.tasks import download_reservations_csv
+from backend.tasks import download_reservations_csv, monthly_reservation_report
 from celery.result import AsyncResult
 import os
-
 
 
 
@@ -400,3 +399,42 @@ def get_csv_file(id):
     except Exception as e:
         print("🚨 Error sending file:", e)
         return jsonify({"status": "Error", "message": str(e)}), 500
+    
+
+
+from backend.mail import send_email
+from backend.utils import format_report
+
+@app.route('/test-email-html')
+def test_email_html():
+    user_data = {
+        "username": "Chipu",
+        "reservations": [
+            {
+                "lot": "Gandhi Maidan",
+                "vehicle": "BR-01CQ-0493",
+                "spot": 1,
+                "booked_at": "12-07-2025 01:47 PM",
+                "released_at": "Not Released",
+                "cost": "Pending"
+            }
+        ]
+    }
+    html_message = format_report("templates/mail_details.html", user_data)
+    send_email("user@example.com", "📊 Monthly Parking Report", html_message, content="html")
+    return "HTML Email sent!"
+
+
+
+
+
+
+
+@app.route('/api/mail', methods=['GET'])
+def send_reports():
+    res = monthly_reservation_report.delay()
+    return {
+        "status": "queued",
+        "task_id": res.id
+    }
+

@@ -1,4 +1,17 @@
+from celery.schedules import crontab
+
 broker_url = "redis://localhost:6379/0"
 result_backend = "redis://localhost:6379/1"
-Timezone = "Asia/kolkata"
+timezone = "Asia/Kolkata"
 broker_connection_retry_on_startup = True
+
+beat_schedule = {
+    'send-daily-reminders': {
+        'task': 'daily_reminder',
+        'schedule': crontab(hour=10, minute=0),  # Every day at 10:00 AM
+    },
+    'send-monthly-reports': {
+        'task': 'monthly_reservation_report',
+        'schedule': crontab(day_of_month=1, hour=10, minute=0),  # 1st of month at 10:00 AM
+    }
+}

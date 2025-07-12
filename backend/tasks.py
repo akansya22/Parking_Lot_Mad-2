@@ -61,3 +61,40 @@ def download_reservations_csv():
                 res.parking_cost if res.parking_cost else "Pending"
             ])
     return filename
+
+
+
+
+
+@shared_task(ignore_results=True, name="daily_reminder")
+def daily_reminder():
+    from .models import User, Reservation
+    from .mail import send_email
+    import datetime
+
+    now = datetime.datetime.utcnow()
+    inactive_since = now - datetime.timedelta(days=2)
+
+    users = User.query.all()
+    for user in users:
+        # Check if they haven't booked in last 2 days
+        recent = Reservation.query.filter(
+            Reservation.user_id == user.id,
+            Reservation.parking_timestamp >= inactive_since
+        ).first()
+
+        if not recent:
+            send_email(
+                user.email,
+                subject="⏰ Daily Parking Reminder",
+                message=f"Hi {user.username}, don't forget to book your parking spot today!"
+            )
+
+    return "Daily reminders sent."
+
+
+
+
+
+
+

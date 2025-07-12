@@ -10,9 +10,8 @@ def roles_list(roles):
 
 
 
+def format_report(template_path, data):
+    with open(template_path) as f:
+        template = Template(f.read())
+    return template.render(data=data)
 
-
-def format_report(html_template, data):
-    with open(html_template) as file:
-        template = Template(file.read())
-        return template.render(data=data)
