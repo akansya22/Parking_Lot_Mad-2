@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Monthly Parking Report</title>
+</head>
+<body>
+    <h2>Hello {{ data.username }},</h2>
+    <p>Here is your parking summary for this month:</p>
+
+    <table border="1" cellspacing="0" cellpadding="5">
+        <thead>
+            <tr>
+                <th>Lot</th>
+                <th>Spot</th>
+                <th>Vehicle</th>
+                <th>Booked At</th>
+                <th>Released At</th>
+                <th>Cost</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for r in data.reservations %}
+            <tr>
+                <td>{{ r.lot }}</td>
+                <td>{{ r.spot }}</td>
+                <td>{{ r.vehicle }}</td>
+                <td>{{ r.booked_at }}</td>
+                <td>{{ r.released_at }}</td>
+                <td>{{ r.cost }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <p>Thank you for using Vehicle Parking App!</p>
+</body>
+</html>
