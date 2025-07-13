@@ -7,23 +7,19 @@ export default {
       <div class="col-md-6 text-end">
         <span v-if="loggedIn" class="me-3">Welcome, {{ username }}</span>
 
-        <!-- ADMIN NAVIGATION -->
         <template v-if="loggedIn && isAdmin">
           <router-link class="btn btn-outline-light btn-sm me-2" to="/admin">Home</router-link>
           <router-link class="btn btn-outline-light btn-sm me-2" to="/admin-users">Users</router-link>
           <router-link class="btn btn-outline-light btn-sm me-2" to="/admin-summary">Summary</router-link>
         </template>
 
-        <!-- USER NAVIGATION -->
         <template v-else-if="loggedIn && isUser">
           <router-link class="btn btn-outline-light btn-sm me-2" to="/user">Home</router-link>
           <router-link class="btn btn-outline-light btn-sm me-2" to="/user-summary">Summary</router-link>
         </template>
 
-        <!-- COMMON LOGOUT -->
         <button v-if="loggedIn" class="btn btn-danger btn-sm" @click="logout">Logout</button>
 
-        <!-- GUEST NAVIGATION -->
         <template v-if="!loggedIn">
           <router-link class="btn btn-primary btn-sm me-2" to="/login">Login</router-link>
           <router-link class="btn btn-warning btn-sm" to="/register">Register</router-link>

@@ -88,7 +88,7 @@ export default {
       this.revenueData = await revenueRes.json();
       this.$nextTick(() => {
         this.renderChart();
-        this.renderRevenueChart(); // 👈 Call new chart method
+        this.renderRevenueChart();
       });
 
     } catch (err) {
@@ -142,19 +142,20 @@ export default {
         type: 'bar',
         data: {
           labels: labels,
-          datasets: [{
-            label: 'Revenue (₹)',
-            backgroundColor: 'rgba(54, 162, 235, 0.7)',
-            borderColor: 'rgba(54, 162, 235, 1)',
-            data: values
-          }]
+          datasets: [
+            {
+              label: 'Revenue (₹)',
+              backgroundColor: 'rgba(54, 162, 235, 0.7)',
+              borderColor: 'rgba(54, 162, 235, 1)',
+              data: values
+            }
+          ]
         },
         options: {
           responsive: true,
           plugins: {
             title: {
               display: true,
-              text: 'Revenue by Parking Lot'
             }
           },
           scales: {

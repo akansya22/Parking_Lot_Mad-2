@@ -47,9 +47,9 @@ export default {
                     localStorage.setItem("auth_token", data["auth-token"]);
                     localStorage.setItem("id", data.id);
                     localStorage.setItem("username", data.username);
-                    localStorage.setItem("roles", JSON.stringify(data.roles)); // ✅ Store roles properly
+                    localStorage.setItem("roles", JSON.stringify(data.roles));
 
-                    // 👇 Tell Navbar to recheck login status immediately
+                    // Tell Navbar to recheck login status immediately
                     eventBus.$emit('login-updated');
 
                     // Navigate based on role

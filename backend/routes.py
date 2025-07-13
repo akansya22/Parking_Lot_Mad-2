@@ -3,8 +3,8 @@ from .models import User, Role, Parking_Spot, Parking_Lot, Reservation
 from flask import current_app as app, jsonify, request, render_template, current_app, send_from_directory
 from flask_security import auth_required, roles_required, roles_accepted, current_user, login_user 
 from werkzeug.security import check_password_hash, generate_password_hash 
-from backend.utils import roles_list 
-from datetime import datetime, timedelta  # Make sure it's imported at the top
+from backend.utils import roles_list
+from datetime import datetime, timedelta
 from math import ceil  
 from backend.tasks import download_reservations_csv, monthly_reservation_report
 from celery.result import AsyncResult
@@ -18,8 +18,8 @@ def home():
 
 
 @app.route('/api/admin')
-@auth_required('token') # Authentication
-@roles_required('admin') # RBAC/Authorization
+@auth_required('token')
+@roles_required('admin')
 def admin_home():
     return jsonify({
         "message" :" Welcome to the Admin Home Page!"
@@ -43,14 +43,11 @@ def user_login():
     body = request.get_json()
     email = body['email']
     password = body['password']
-
     if not email:
         return jsonify({
             "message": "Email is required!"
         }), 400
-
     user = app.security.datastore.find_user(email = email)
-
     if user:
         if check_password_hash(user.password, password):
             login_user(user)
@@ -71,8 +68,6 @@ def user_login():
         }), 404
 
 
-
-
 @app.route('/api/register', methods=['POST'])
 def create_user():
     credentials = request.get_json()
@@ -88,13 +83,10 @@ def create_user():
             "message": "User created successfully!",
             "success": True
         }), 201
-
     return jsonify({
         "message": "User already exists!",
         "success": False
     }), 400
-
-
 
 
 @app.route('/api/spot/<int:lot_id>/<int:spot_number>', methods=['DELETE'])
@@ -104,18 +96,9 @@ def delete_spot(lot_id, spot_number):
     spot = Parking_Spot.query.filter_by(lot_id=lot_id, spot_number=spot_number).first()
     if not spot:
         return jsonify({"message": "Spot not found"}), 404
-
     db.session.delete(spot)
     db.session.commit()
-
     return jsonify({"message": f"Spot {spot_number} deleted successfully"}), 200
-
-
-
-
-
-
-
 
 
 @app.route('/api/book', methods=['POST'])
@@ -126,47 +109,31 @@ def book_spot():
         data = request.get_json()
         lot_id = data.get("lot_id")
         vehicle_number = data.get("vehicle_number")
-
         if not lot_id or not vehicle_number:
             return jsonify({"message": "Lot ID and vehicle number are required"}), 400
-
         spot = Parking_Spot.query.filter_by(lot_id=lot_id, status='A').first()
         if not spot:
             return jsonify({"message": "No available spots"}), 400
-
-        # Update spot
         spot.status = 'O'
         spot.customer_id = current_user.id
         spot.vehicle_number = vehicle_number
         db.session.commit()
-
-        # Create reservation
         reservation = Reservation(
             user_id=current_user.id,
             spot_id=spot.id,
             vehicle_number=vehicle_number,
-            lot_name_snapshot=spot.parking_lot.location_name,  # store name
-            spot_number_snapshot=spot.spot_number,              # store spot
+            lot_name_snapshot=spot.parking_lot.location_name,
+            spot_number_snapshot=spot.spot_number,
             parking_timestamp=datetime.utcnow()
         )
         db.session.add(reservation)
         db.session.commit()
-
-        current_app.cache.delete("lot_data")  # ✅ this is the fix
-
+        current_app.cache.delete("lot_data")
         return jsonify({"message": f"Spot {spot.id} reserved successfully!"}), 200
-
     except Exception as e:
         import traceback
         traceback.print_exc()
         return jsonify({"error": "Booking failed", "details": str(e)}), 500
-
-
-
-
-
-
-
 
 
 @app.route('/api/user/bookings')
@@ -176,13 +143,12 @@ def user_bookings():
     try:
         reservations = Reservation.query.filter_by(user_id=current_user.id).order_by(Reservation.id.desc()).all()
         result = []
-
         for r in reservations:
             spot = r.parking_spot
             lot = spot.parking_lot if spot else None
             result.append({
                 "id": r.spot_id,
-                "lot_name": f"{lot.location_name}" if lot else f"{r.lot_name_snapshot} (Spot No longer available)",
+                "lot_name": f"{lot.location_name}" if lot else f"{r.lot_name_snapshot} (Spot no longer available)",
                 "spot_number": spot.spot_number if spot else r.spot_number_snapshot,
                 "vehicle_number": r.vehicle_number,
                 "time": (r.parking_timestamp + timedelta(hours=5, minutes=30)).isoformat(),
@@ -190,17 +156,11 @@ def user_bookings():
                 "released": bool(r.leaving_timestamp),
                 "price_per_hour": lot.price if lot else "N/A"
             })
-
-
         return jsonify(result), 200
     except Exception as e:
         import traceback
         traceback.print_exc()
         return jsonify({"error": "Internal error", "details": str(e)}), 500
-
-
-
-
 
 
 @app.route('/api/release', methods=['POST'])
@@ -210,57 +170,31 @@ def release_spot():
     try:
         data = request.get_json()
         spot_id = data.get("spot_id")
-
         spot = Parking_Spot.query.get(spot_id)
         if not spot:
             return jsonify({"message": "Invalid spot ID"}), 404
-
         reservation = Reservation.query.filter_by(
             spot_id=spot_id, user_id=current_user.id
         ).order_by(Reservation.id.desc()).first()
-
         if not reservation or reservation.leaving_timestamp:
             return jsonify({"message": "No active reservation found"}), 400
-
-        # Set the release time
         reservation.leaving_timestamp = datetime.utcnow()
-
-                # ⏱️ Calculate duration in hours
         duration = (reservation.leaving_timestamp - reservation.parking_timestamp).total_seconds() / 3600
-        duration = max(duration, 0.01)  # Prevent zero duration
-
-        # ⬆️ Round up to nearest full hour
+        duration = max(duration, 0.01)
         hours_to_charge = ceil(duration)
-
-        # 💸 Get the lot price
         lot_price = spot.parking_lot.price
-
-        # 🧮 Final cost
         cost = round(hours_to_charge * lot_price, 2)
         reservation.parking_cost = cost
-
-
-        # Reset the spot
         spot.status = 'A'
         spot.customer_id = None
         spot.vehicle_number = None
-
         db.session.commit()
-
-        current_app.cache.delete("lot_data")  # ✅ Clear cache after releasing spot
-
+        current_app.cache.delete("lot_data")
         return jsonify({"message": f"Spot released. ₹{cost} charged"}), 200
-
     except Exception as e:
         import traceback
         traceback.print_exc()
         return jsonify({"message": "Error releasing spot", "error": str(e)}), 500
-
-
-
-
-
-
 
 
 @app.route('/api/admin/lot-stats')
@@ -270,7 +204,6 @@ def lot_stats():
     try:
         lots = Parking_Lot.query.all()
         result = []
-
         for lot in lots:
             occupied = Parking_Spot.query.filter_by(lot_id=lot.id, status='O').count()
             available = Parking_Spot.query.filter_by(lot_id=lot.id, status='A').count()
@@ -279,14 +212,9 @@ def lot_stats():
                 "occupied": occupied,
                 "available": available
             })
-
         return jsonify(result), 200
-
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-
-
-
 
 
 @app.route('/api/user/parking-summary')
@@ -294,7 +222,6 @@ def lot_stats():
 @roles_accepted('user', 'admin')
 def user_parking_summary():
     try:
-        # Get all reservations by current user, join with parking_lot
         results = db.session.query(
             Parking_Lot.location_name,
             db.func.count(Reservation.id)
@@ -303,8 +230,6 @@ def user_parking_summary():
          .filter(Reservation.user_id == current_user.id)\
          .group_by(Parking_Lot.location_name)\
          .all()
-
-        # Format the result
         summary = [{"location": row[0], "count": row[1]} for row in results]
         return jsonify(summary), 200
     except Exception as e:
@@ -313,10 +238,6 @@ def user_parking_summary():
         return jsonify({"error": "Failed to fetch parking summary"}), 500
     
 
-
-
-
-
 @app.route('/api/users')
 @auth_required('token')
 @roles_required('admin')
@@ -324,15 +245,12 @@ def get_users():
     try:
         users = User.query.filter(~User.roles.any(Role.name == 'admin')).all()
         result = []
-
         for u in users:
             reservations = Reservation.query.filter_by(user_id=u.id).order_by(Reservation.id.desc()).all()
             bookings = []
-
             for r in reservations:
                 if not r.parking_spot or not r.parking_spot.parking_lot:
-                    continue  # skip incomplete relationships
-
+                    continue
                 bookings.append({
                     "lot_name": r.parking_spot.parking_lot.location_name,
                     "spot_number": r.parking_spot.spot_number,
@@ -342,8 +260,6 @@ def get_users():
                     "released": bool(r.leaving_timestamp),
                     "amount_paid": r.parking_cost 
                 })
-
-
             result.append({
                 "id": u.id,
                 "username": u.username,
@@ -351,19 +267,11 @@ def get_users():
                 "roles": [role.name for role in u.roles],
                 "bookings": bookings
             })
-
         return jsonify(result), 200
     except Exception as e:
         import traceback
         traceback.print_exc()
         return jsonify({"error": "Failed to fetch users"}), 500
-
-
-
-
-
-
-
 
 
 @app.route('/api/export')
@@ -379,56 +287,21 @@ def export_csv():
 @roles_required("admin")
 def get_csv_file(id):
     result = AsyncResult(id)
-    
     if not result.ready():
         return jsonify({"status": "Pending", "message": "File is still being generated. Try again later."}), 202
-    
     if result.failed():
         return jsonify({"status": "Failed", "message": "Task failed to complete."}), 500
-    
     filename = result.result
     if not filename:
         return jsonify({"status": "Error", "message": "No file generated."}), 500
-
     try:
-        # ✅ Add debug prints here
-        print("📁 Sending file:", filename)
-        print("📂 Directory contents:", os.listdir('static'))
-
+        print("Sending file:", filename)
+        print("Directory contents:", os.listdir('static'))
         return send_from_directory('static', filename, as_attachment=True)
     except Exception as e:
-        print("🚨 Error sending file:", e)
+        print("Error sending file:", e)
         return jsonify({"status": "Error", "message": str(e)}), 500
     
-
-
-from backend.mail import send_email
-from backend.utils import format_report
-
-@app.route('/test-email-html')
-def test_email_html():
-    user_data = {
-        "username": "Chipu",
-        "reservations": [
-            {
-                "lot": "Gandhi Maidan",
-                "vehicle": "BR-01CQ-0493",
-                "spot": 1,
-                "booked_at": "12-07-2025 01:47 PM",
-                "released_at": "Not Released",
-                "cost": "Pending"
-            }
-        ]
-    }
-    html_message = format_report("templates/mail_details.html", user_data)
-    send_email("user@example.com", "📊 Monthly Parking Report", html_message, content="html")
-    return "HTML Email sent!"
-
-
-
-
-
-
 
 @app.route('/api/mail', methods=['GET'])
 def send_reports():
@@ -437,4 +310,3 @@ def send_reports():
         "status": "queued",
         "task_id": res.id
     }
-

@@ -8,10 +8,22 @@ broker_connection_retry_on_startup = True
 beat_schedule = {
     'send-daily-reminders': {
         'task': 'daily_reminder',
-        'schedule': crontab(hour=10, minute=0),  # Every day at 10:00 AM
+        'schedule': crontab(hour=12, minute=0),
     },
     'send-monthly-reports': {
         'task': 'monthly_reservation_report',
-        'schedule': crontab(day_of_month=1, hour=10, minute=0),  # 1st of month at 10:00 AM
+        'schedule': crontab(minute='*/1'),
     }
 }
+
+
+#  for month (day_of_month=1, hour=10, minute=0)
+
+#  for minute (minute='*/1')
+
+#  http://localhost:5000/api/mail
+
+#  redis ---> redis-server
+#  celery --> celery -A app.celery worker --loglevel INFO
+#  beat  ---> celery -A app.celery beat --loglevel INFO
+#  mailhog -> http://localhost:8025 -----> ./MailHog

@@ -101,7 +101,6 @@ export default {
       return lot.spots || [];
     },
 
-
     handleSpotClick(spot) {
         this.selectedSpot = spot;
         this.isOccupied = spot.status === 'O';
@@ -113,45 +112,46 @@ export default {
         }
         },
 
-        async fetchSpotDetails(spot) {
-            try {
-                const res = await fetch(`/api/spot/${spot.lotId}/${spot.number}`, {
-                headers: { "Authentication-Token": localStorage.getItem("auth_token") }
-                });
-                this.selectedSpotDetails = await res.json();
-                this.selectedSpotModal = true;
-            } catch (err) {
-                console.error("Failed to fetch spot details", err);
-            }
-        },
+    async fetchSpotDetails(spot) {
+        try {
+            const res = await fetch(`/api/spot/${spot.lotId}/${spot.number}`, {
+            headers: { "Authentication-Token": localStorage.getItem("auth_token") }
+            });
+            this.selectedSpotDetails = await res.json();
+            this.selectedSpotModal = true;
+        } catch (err) {
+            console.error("Failed to fetch spot details", err);
+        }
+    },
 
-        async deleteSpot() {
-          if (!confirm("Delete this available spot?")) return;
-            try {
-                const res = await fetch(`/api/spot/${this.selectedSpot.lotId}/${this.selectedSpot.number}`, {
-                method: "DELETE",
-                headers: { "Authentication-Token": localStorage.getItem("auth_token") }
-                });
-                const data = await res.json();
-                this.message = data.message;
-                this.selectedSpotModal = false;
-                this.fetchLots();  // refresh to update UI
-            } catch (err) {
-                console.error("Failed to delete spot", err);
-            }
-        },
-        async fetchUsers() {
-            try {
-                const res = await fetch("/api/users", {
-                headers: { "Authentication-Token": localStorage.getItem("auth_token") }
-                });
-                this.users = await res.json();
-                this.showUsers = true;
-            } catch (err) {
-                console.error("Failed to fetch users", err);
-            }
-        },
-    // ✅ CSV Download
+    async deleteSpot() {
+      if (!confirm("Delete this available spot?")) return;
+        try {
+            const res = await fetch(`/api/spot/${this.selectedSpot.lotId}/${this.selectedSpot.number}`, {
+            method: "DELETE",
+            headers: { "Authentication-Token": localStorage.getItem("auth_token") }
+            });
+            const data = await res.json();
+            this.message = data.message;
+            this.selectedSpotModal = false;
+            this.fetchLots();
+        } catch (err) {
+            console.error("Failed to delete spot", err);
+        }
+    },
+
+    async fetchUsers() {
+        try {
+            const res = await fetch("/api/users", {
+            headers: { "Authentication-Token": localStorage.getItem("auth_token") }
+            });
+            this.users = await res.json();
+            this.showUsers = true;
+        } catch (err) {
+            console.error("Failed to fetch users", err);
+        }
+    },
+
     csvExport() {
       const token = localStorage.getItem("auth_token");
 
@@ -161,8 +161,6 @@ export default {
         .then(response => response.json())
         .then(data => {
           const taskId = data.id;
-
-          // Poll until task is ready
           const interval = setInterval(() => {
             fetch(`/api/csv_result/${taskId}`, {
               headers: { "Authentication-Token": token }
@@ -173,12 +171,11 @@ export default {
                   return;
                 } else if (res.status === 200) {
                   clearInterval(interval);
-                  // ✅ Instead of redirecting, stream download:
                   return res.blob();
                 } else {
                   const err = await res.json();
                   clearInterval(interval);
-                  alert("❌ Error: " + (err.message || "Failed to generate CSV."));
+                  alert("Error: " + (err.message || "Failed to generate CSV."));
                 }
               })
               .then(blob => {
@@ -194,21 +191,17 @@ export default {
               })
               .catch(err => {
                 clearInterval(interval);
-                console.error("❌ CSV Error:", err);
-                alert("❌ Download failed. Please try again.");
+                console.error("CSV Error:", err);
+                alert("Download failed. Please try again.");
               });
-          }, 2000); // Poll every 2 seconds
+          }, 2000);
         })
         .catch(err => {
-          console.error("❌ Export Task Failed:", err);
-          alert("❌ CSV Export Task failed.");
+          console.error("Export Task Failed:", err);
+          alert("CSV Export Task failed.");
         });
     }
-
-
-
   },
-
 
 
   mounted() {
@@ -219,11 +212,9 @@ export default {
     <div class="container mt-4">
     <div style="height: 610px; overflow-y: scroll;">
       <div v-if="message" class="alert alert-info">{{ message }}</div>
-
-      <!-- ✅ CSV Download Button -->
       <div class="text-end mb-3">
         <button @click="csvExport" class="btn btn-success">
-          📥 Download Reservations CSV
+          Download Reservations CSV
         </button>
       </div>
 
@@ -232,24 +223,23 @@ export default {
         <div class="col-md-4 mb-4" v-for="lot in lots" :key="lot.id">
           <div class="card shadow">
             <div class="card-header bg-primary text-white">
-              Parking Lot #{{ lot.id }} - {{ lot.location_name }}
+              Parking Lot_{{ lot.id }} - {{ lot.location_name }}
             </div>
             <div class="card-body">
               <p><strong>PIN:</strong> {{ lot.pin_code }}</p>
               <p><strong>Price:</strong> ₹{{ lot.price }}</p>
               <p><strong>Total Spots:</strong> {{ lot.number_of_spots }}</p>
               <div class="d-flex flex-wrap">
-            <span
-            v-for="(spot, index) in generateSpots(lot)"
-            :key="index"
-            class="badge me-1 mb-1"
-            :class="spot.status === 'A' ? 'bg-success' : 'bg-danger'"
-            style="cursor:pointer"
-            @click="handleSpotClick(spot)"
-            >
-            {{ spot.status }}
-            </span>
-
+              <span
+              v-for="(spot, index) in generateSpots(lot)"
+              :key="index"
+              class="badge me-1 mb-1"
+              :class="spot.status === 'A' ? 'bg-success' : 'bg-danger'"
+              style="cursor:pointer"
+              @click="handleSpotClick(spot)"
+              >
+              {{ spot.status }}
+              </span>
               </div>
               <div class="mt-3 text-end">
                 <button class="btn btn-sm btn-warning me-2" @click="openEditModal(lot)">Edit</button>
@@ -309,70 +299,70 @@ export default {
       </div>
 
       <!-- Spot Modal -->
-        <div v-if="selectedSpotModal" class="modal d-block" style="background: rgba(0, 0, 0, 0.6);">
-        <div class="modal-dialog">
-            <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Spot #{{ selectedSpot?.number }}</h5>
-                <button type="button" class="btn-close" @click="selectedSpotModal = false"></button>
-            </div>
-            <div class="modal-body">
-                <div v-if="isOccupied && selectedSpotDetails">
-                <p><strong>Customer ID:</strong> {{ selectedSpotDetails.customer_id }}</p>
-                <p><strong>Vehicle Number:</strong> {{ selectedSpotDetails.vehicle_number }}</p>
-                <p><strong>Date:</strong> {{ selectedSpotDetails.date }}</p>
-                <p><strong>Time:</strong> {{ selectedSpotDetails.time }}</p>
-                <p><strong>Cost:</strong> ₹{{ selectedSpotDetails.cost }}</p>
-                <div class="text-end">
-                    <button class="btn btn-secondary" @click="selectedSpotModal = false">Close</button>
-                </div>
-                </div>
-                <div v-else>
-                <p><strong>Status:</strong> Available</p>
-                <p><strong>Spot ID:</strong> {{ selectedSpot?.number }}</p>
-                <div class="text-end">
-                    <button class="btn btn-danger me-2" @click="deleteSpot">Delete</button>
-                    <button class="btn btn-secondary" @click="selectedSpotModal = false">Cancel</button>
-                </div>
-                </div>
-            </div>
-            </div>
-        </div>
-        </div>
-        <!-- Users Modal -->
-        <div v-if="showUsers" class="card mt-4">
-            <div class="card-header bg-secondary text-white">
-                <h5 class="mb-0">Registered Users</h5>
-            </div>
-            <div class="card-body">
-                <table class="table table-striped">
-                <thead>
-                    <tr>
-                    <th>ID</th>
-                    <th>Username</th>
-                    <th>Email</th>
-                    <th>Roles</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr v-for="user in users" :key="user.id">
-                    <td>{{ user.id }}</td>
-                    <td>{{ user.username }}</td>
-                    <td>{{ user.email }}</td>
-                    <td>{{ user.roles.join(', ') }}</td>
-                    </tr>
-                </tbody>
-                </table>
-                <div class="text-end">
-                <button class="btn btn-secondary" @click="showUsers = false">Close</button>
-                </div>
-            </div>
-        </div>
+      <div v-if="selectedSpotModal" class="modal d-block" style="background: rgba(0, 0, 0, 0.6);">
+      <div class="modal-dialog">
+          <div class="modal-content">
+          <div class="modal-header">
+              <h5 class="modal-title">Spot #{{ selectedSpot?.number }}</h5>
+              <button type="button" class="btn-close" @click="selectedSpotModal = false"></button>
+          </div>
+          <div class="modal-body">
+              <div v-if="isOccupied && selectedSpotDetails">
+              <p><strong>Customer ID:</strong> {{ selectedSpotDetails.customer_id }}</p>
+              <p><strong>Vehicle Number:</strong> {{ selectedSpotDetails.vehicle_number }}</p>
+              <p><strong>Date:</strong> {{ selectedSpotDetails.date }}</p>
+              <p><strong>Time:</strong> {{ selectedSpotDetails.time }}</p>
+              <p><strong>Cost:</strong> ₹{{ selectedSpotDetails.cost }}</p>
+              <div class="text-end">
+                  <button class="btn btn-secondary" @click="selectedSpotModal = false">Close</button>
+              </div>
+              </div>
+              <div v-else>
+              <p><strong>Status:</strong> Available</p>
+              <p><strong>Spot ID:</strong> {{ selectedSpot?.number }}</p>
+              <div class="text-end">
+                  <button class="btn btn-danger me-2" @click="deleteSpot">Delete</button>
+                  <button class="btn btn-secondary" @click="selectedSpotModal = false">Cancel</button>
+              </div>
+              </div>
+          </div>
+          </div>
+      </div>
+      </div>
 
-      <!-- Floating Add Button (above footer) -->
+      <!-- Users Modal -->
+      <div v-if="showUsers" class="card mt-4">
+          <div class="card-header bg-secondary text-white">
+              <h5 class="mb-0">Registered Users</h5>
+          </div>
+          <div class="card-body">
+              <table class="table table-striped">
+              <thead>
+                  <tr>
+                  <th>ID</th>
+                  <th>Username</th>
+                  <th>Email</th>
+                  <th>Roles</th>
+                  </tr>
+              </thead>
+              <tbody>
+                  <tr v-for="user in users" :key="user.id">
+                  <td>{{ user.id }}</td>
+                  <td>{{ user.username }}</td>
+                  <td>{{ user.email }}</td>
+                  <td>{{ user.roles.join(', ') }}</td>
+                  </tr>
+              </tbody>
+              </table>
+              <div class="text-end">
+              <button class="btn btn-secondary" @click="showUsers = false">Close</button>
+              </div>
+          </div>
+      </div>
+
       <div class="text-center mt-4">
         <button class="btn btn-success px-4" @click="showModal = true">
-            ➕ Add Parking Lot
+          Add Parking Lot
         </button>
       </div>
 

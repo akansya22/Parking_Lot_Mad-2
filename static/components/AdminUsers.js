@@ -1,8 +1,7 @@
 export default {
   template: `
-    <div class="container mt-4">
-      <h3 class="text-primary mb-4">Registered Users & Bookings</h3>
-
+    <div class="container mt-4" style="height: 610px;">
+      <h3 class="text-primary text-center mb-4">Registered Users & Bookings</h3>
       <div v-for="user in users" :key="user.id" class="card mb-3 shadow-sm">
         <div class="card-body">
           <h5 class="card-title">ID: {{ user.id }} | Username: {{ user.username }}</h5>

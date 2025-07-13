@@ -169,7 +169,7 @@ export default {
     },
 
     confirmBooking() {
-      console.log("👉 Booking submitted");
+      console.log("Booking submitted");
       console.log("Lot ID:", this.selectedLotId);
       console.log("Vehicle Number:", this.vehicleNumber);
 
@@ -196,7 +196,7 @@ export default {
           this.cancelBooking();
         })
         .catch(err => {
-          console.error("❌ Booking failed:", err);
+          console.error("Booking failed:", err);
           alert("Something went wrong. Try again.");
         });
     },
@@ -205,8 +205,8 @@ export default {
       const booking = this.bookings.find(b => b.id === spotId);
       if (!booking) return;
 
-      const parkedTimeUTC = new Date(booking.time);       // from backend
-      const now = new Date();                              // current time
+      const parkedTimeUTC = new Date(booking.time); 
+      const now = new Date();  
 
       const durationInHours = Math.max(1, Math.ceil((now - parkedTimeUTC) / (1000 * 60 * 60)));
       const costPerHour = booking.price_per_hour || 20;
@@ -223,8 +223,7 @@ export default {
 
       this.showReleaseModal = true;
     },
-
-
+    
     confirmRelease() {
       fetch('/api/release', {
         method: 'POST',
@@ -242,7 +241,7 @@ export default {
           this.cancelRelease();
         })
         .catch(err => {
-          console.error("❌ Release failed:", err);
+          console.error("Release failed:", err);
           alert("Something went wrong during release.");
         });
     },
@@ -265,10 +264,6 @@ export default {
         hour12: true
       });
     }
-
-
-
-    
   },
   mounted() {
     this.fetchLots();

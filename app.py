@@ -9,10 +9,6 @@ from backend.celery_init import celery_init_app
 from flask_caching import Cache
 
 
-
-
-# ✅ Redis Cache Configuration
-
 cache = Cache(config={
     'CACHE_TYPE': 'RedisCache',
     'CACHE_REDIS_HOST': 'localhost',
@@ -28,8 +24,8 @@ def create_app():
     db.init_app(app)
     api.init_app(app)
 
-    cache.init_app(app)           # 🔥 Initialize cache with app
-    app.cache = cache             # 🔥 Attach cache to app instance
+    cache.init_app(app) 
+    app.cache = cache   
 
     datastore = SQLAlchemyUserDatastore(db, User, Role)
     app.security = Security(app, datastore)
@@ -52,12 +48,6 @@ with app.app_context():
                                            username="Avinash",
                                            password=generate_password_hash("Ganeshaa"),
                                            roles=["admin"])
-        
-    if not app.security.datastore.find_user(email="chipu@gmail.com"):
-        app.security.datastore.create_user(email="chipu@gmail.com",
-                                           username="Chipu",
-                                           password=generate_password_hash("chipu"),
-                                           roles=["user"])
     db.session.commit()
 
 from backend.routes import *

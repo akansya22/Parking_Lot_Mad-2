@@ -8,22 +8,20 @@ from email import encoders
 SMTP_SERVER_HOST = "localhost"
 SMTP_SERVER_PORT = 1025
 SENDER_ADDRESS = "parkinglot@donotreply.in"
-SENDER_PASSWORD = ""  # Not used for local dev SMTP
+SENDER_PASSWORD = ""
 
 def send_email(to_address, subject, message, content="html", attachment_file=None):
-    print("➡️ Preparing email to:", to_address)
+    print("Preparing email to:", to_address)
     msg = MIMEMultipart()
     msg['From'] = SENDER_ADDRESS
     msg['To'] = to_address
     msg['Subject'] = subject
 
-    # Add body
     if content == "html":
         msg.attach(MIMEText(message, "html"))
     else:
         msg.attach(MIMEText(message, "plain"))
 
-    # Attach file if needed
     if attachment_file:
         print("📎 Attaching file:", attachment_file)
         with open(attachment_file, 'rb') as attachment:
@@ -33,11 +31,10 @@ def send_email(to_address, subject, message, content="html", attachment_file=Non
             part.add_header("Content-Disposition", f"attachment; filename={attachment_file}")
             msg.attach(part)
 
-    # Send via local SMTP (MailHog)
-    print("📤 Sending email via localhost:1025...")
+    print("Sending email via localhost:1025...")
     s = smtplib.SMTP(host=SMTP_SERVER_HOST, port=SMTP_SERVER_PORT)
     s.send_message(msg)
     s.quit()
-    print("✅ Email sent.")
+    print("Email sent.")
 
     return True

@@ -1,10 +1,7 @@
 export default {
   template: `
     <div class="container mt-4" style="max-width: 800px; height: 610px;">
-    
-      <h3 class="text-primary mb-4">User Parking Summary</h3>
-
-      <!-- Chart Container -->
+      <h3 class="text-center text-primary">📊 User Parking Summary</h3>
       <div>
         <canvas id="usageChart" width="600" height="300"></canvas>
       </div>

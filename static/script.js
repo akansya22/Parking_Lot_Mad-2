@@ -1,5 +1,5 @@
 
-window.eventBus = new Vue();  // Global event bus to sync state
+window.eventBus = new Vue();
 
 import Home from './components/Home.js';
 import Login from './components/Login.js';
@@ -12,9 +12,6 @@ import AdminUsers from './components/AdminUsers.js';
 import AdminSummary from './components/AdminSummary.js';
 import UserSummary from './components/UserSummary.js';
 
-
-
-
 const routes = [
     {path: '/', component: Home},
     {path: '/login', component: Login},
@@ -24,7 +21,6 @@ const routes = [
     {path: '/admin', component: Admin},
     {path: '/admin-users', component: AdminUsers},
     {path: '/admin-summary', component: AdminSummary},
-
 ]
 
 const router = new VueRouter({
@@ -42,7 +38,6 @@ const app = new Vue({
         <foot></foot>
     </div>
     `,
-
     data: {
         section : 'forntend',
     },
